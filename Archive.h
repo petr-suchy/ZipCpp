@@ -13,12 +13,46 @@ namespace Zip {
 	class Archive {
 	public:
 
+		typedef struct zip_stat EntryInfo;
+		typedef std::vector<EntryInfo> EntryList;
+
 		virtual ~Archive()
 		{
 			if (_isOpen) {
 				// close the archive without writing changes to disk
 				zip_discard(_zipPtr);
 			}
+		}
+
+		EntryList getEntryList()
+		{
+			openArchiveOnlyOnce();
+
+			EntryList entryList;
+
+			zip_int64_t numOfEntries = zip_get_num_entries(
+				_zipPtr,
+				0
+			);
+
+			for (zip_int64_t index = 0; index < numOfEntries; index++) {
+
+				struct zip_stat stat;
+
+				int result = zip_stat_index(
+					_zipPtr,
+					index,
+					0,
+					&stat
+				);
+
+				if (result == 0) {
+					entryList.push_back(stat);
+				}
+
+			}
+
+			return entryList;
 		}
 
 		void saveAndClose()
@@ -50,6 +84,7 @@ namespace Zip {
 		{
 			openArchiveOnlyOnce();
 
+			// get a file index for the given name
 			zip_int64_t entryIndex = zip_name_locate(
 				_zipPtr,
 				entryPath.c_str(),
@@ -58,6 +93,7 @@ namespace Zip {
 
 			return ArchiveEntry (
 				entryIndex,
+				// opens archive entry
 				[this](zip_int64_t entryIndex) {
 
 					if (!_zipPtr) {
@@ -93,6 +129,7 @@ namespace Zip {
 		{
 			openArchiveOnlyOnce();
 
+			// get a file index for the given name
 			zip_int64_t entryIndex = zip_name_locate(
 				_zipPtr,
 				entryPath.c_str(),
@@ -101,7 +138,8 @@ namespace Zip {
 
 			return ArchiveEntry(
 				entryIndex,
-				[this, entryPassword](zip_int64_t entryIndex) {
+				// opens encrypted archive entry
+				[this, entryPassword] (zip_int64_t entryIndex) {
 
 					if (!_zipPtr) {
 						throw std::logic_error("archive has been closed");
