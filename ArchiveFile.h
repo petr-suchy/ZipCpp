@@ -7,16 +7,33 @@ namespace Zip {
 	class ArchiveFile : public Archive {
 	public:
 
+		struct Existing {};
 		struct ReadOnly {};
+		struct Truncate {};
 
+		// default - creates archive if it does not exist
 		ArchiveFile(const std::string& filePath) :
 			_filePath(filePath),
+			// flags will be passed to _openArchive function
 			Archive(ZIP_CREATE)
 		{}
 
+		// opens exsiting archive
+		ArchiveFile(const std::string& filePath, Existing) :
+			_filePath(filePath),
+			Archive(0)
+		{}
+
+		// opens archive in read-only mode
 		ArchiveFile(const std::string& filePath, ReadOnly) :
 			_filePath(filePath),
 			Archive(ZIP_RDONLY)
+		{}
+
+		// if archive exists, ignores its current contents
+		ArchiveFile(const std::string& filePath, Truncate) :
+			_filePath(filePath),
+			Archive(ZIP_TRUNCATE)
 		{}
 
 	protected:
