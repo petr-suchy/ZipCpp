@@ -5,6 +5,7 @@
 #include <vector>
 
 #include "Error.h"
+#include "ZipHandle.h"
 #include "ArchiveEntry.h"
 #include "ReadableSourceStream.h"
 
@@ -18,10 +19,8 @@ namespace Zip {
 
 		virtual ~Archive()
 		{
-			if (_isOpen) {
-				// close the archive without writing changes to disk
-				zip_discard(_zipPtr);
-			}
+			// zip handle MUST be destroyed before the attached sources
+			_zipPtr = nullptr;
 		}
 
 		EntryList getEntryList()
@@ -31,7 +30,7 @@ namespace Zip {
 			EntryList entryList;
 
 			zip_int64_t numOfEntries = zip_get_num_entries(
-				_zipPtr,
+				_zipPtr->get(),
 				0
 			);
 
@@ -40,7 +39,7 @@ namespace Zip {
 				struct zip_stat stat;
 
 				int result = zip_stat_index(
-					_zipPtr,
+					_zipPtr->get(),
 					index,
 					0,
 					&stat
@@ -57,24 +56,7 @@ namespace Zip {
 
 		void saveAndClose()
 		{
-			if (_isOpen) {
-
-				// write changes to the disk and close the archive
-				int result = zip_close(_zipPtr);
-
-				if (result == -1) {
-
-					throw std::runtime_error(
-						std::string("can't close zip archive -> ")
-							+ zip_strerror(_zipPtr)
-					);
-
-				}
-
-				_zipPtr = nullptr;
-				_isOpen = false;
-				_hasBeenSavedAndClosed = true;
-			}
+			_zipPtr->saveAndClose();
 		}
 
 		ArchiveEntry getEntry(
@@ -86,22 +68,27 @@ namespace Zip {
 
 			// get a file index for the given name
 			zip_int64_t entryIndex = zip_name_locate(
-				_zipPtr,
+				_zipPtr->get(),
 				entryPath.c_str(),
 				flags
 			);
 
+			ZipHandle::WeakPtr weakZipPtr = _zipPtr;
+
 			return ArchiveEntry (
 				entryIndex,
 				// opens archive entry
-				[this](zip_int64_t entryIndex) {
+				[weakZipPtr] (zip_int64_t entryIndex)
+				{
 
-					if (!_zipPtr) {
+					auto zipPtr = weakZipPtr.lock();
+
+					if (!zipPtr) {
 						throw std::logic_error("archive has been closed");
 					}
 
 					zip_file_t* zipFilePtr = zip_fopen_index(
-						_zipPtr,
+						zipPtr->get(),
 						entryIndex,
 						0
 					);
@@ -110,7 +97,7 @@ namespace Zip {
 
 						throw std::runtime_error(
 							std::string("can't open archive entry for reading -> ")
-								+ zip_strerror(_zipPtr)
+								+ zip_strerror(zipPtr->get())
 						);
 
 					}
@@ -131,7 +118,7 @@ namespace Zip {
 
 			// get a file index for the given name
 			zip_int64_t entryIndex = zip_name_locate(
-				_zipPtr,
+				_zipPtr->get(),
 				entryPath.c_str(),
 				flags
 			);
@@ -141,12 +128,12 @@ namespace Zip {
 				// opens encrypted archive entry
 				[this, entryPassword] (zip_int64_t entryIndex) {
 
-					if (!_zipPtr) {
+					if (!_zipPtr->get()) {
 						throw std::logic_error("archive has been closed");
 					}
 
 					zip_file_t* zipFilePtr = zip_fopen_index_encrypted(
-						_zipPtr,
+						_zipPtr->get(),
 						entryIndex,
 						0,
 						entryPassword.c_str()
@@ -156,7 +143,7 @@ namespace Zip {
 
 						throw std::runtime_error(
 							std::string("can't open encrypted archive entry for reading -> ")
-								+ zip_strerror(_zipPtr)
+								+ zip_strerror(_zipPtr->get())
 						);
 
 					}
@@ -166,6 +153,7 @@ namespace Zip {
 			);
 
 		}
+		
 
 		template<typename InputStream>
 		void addEntry(
@@ -223,19 +211,15 @@ namespace Zip {
 			int flags
 		) :
 			_flags(flags),
-			_zipPtr(nullptr),
-			_isOpen(false),
-			_hasBeenSavedAndClosed(false)
+			_zipPtr(std::make_shared<ZipHandle>(nullptr))
 		{}
 
-		virtual zip_t* _openArchive(int flags) = 0;
+		virtual ZipHandle::SharedPtr _openArchive(int flags) = 0;
 
 	private:
 
 		int _flags;
-		zip_t* _zipPtr;
-		bool _isOpen;
-		bool _hasBeenSavedAndClosed;
+		ZipHandle::SharedPtr _zipPtr;
 
 		std::vector<
 			std::shared_ptr<SourceStream>
@@ -243,13 +227,12 @@ namespace Zip {
 
 		void openArchiveOnlyOnce()
 		{
-			if (_hasBeenSavedAndClosed) {
+			if (_zipPtr->isSaved()) {
 				throw std::logic_error("archive has been closed");
 			}
 
-			if (!_isOpen) {
+			if (!_zipPtr->isOpen()) {
 				_zipPtr = _openArchive(_flags);
-				_isOpen = true;
 			}
 		}
 
@@ -265,17 +248,17 @@ namespace Zip {
 			openArchiveOnlyOnce();
 
 			zip_source_t* zipSrcPtr = zip_source_function(
-				_zipPtr,
+				_zipPtr->get(),
 				&ReadableSourceStream<InputStream>::dispatch,
 				srcPtr.get()
 			);
 
 			if (!zipSrcPtr) {
-				throw std::runtime_error("can't create the zip archive data source");
+				throw std::runtime_error("can't create zip archive data source");
 			}
 
 			zip_int64_t entryIndex = zip_file_add(
-				_zipPtr,
+				_zipPtr->get(),
 				entryPath.c_str(),
 				zipSrcPtr,
 				ZIP_FL_OVERWRITE | flags
@@ -287,7 +270,7 @@ namespace Zip {
 
 				throw std::runtime_error(
 					std::string("can't add entry to zip archive -> ")
-						+ zip_strerror(_zipPtr)
+						+ zip_strerror(_zipPtr->get())
 				);
 
 			}

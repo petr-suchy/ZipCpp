@@ -38,7 +38,7 @@ namespace Zip {
 
 	protected:
 
-		virtual zip_t* _openArchive(int flags)
+		virtual ZipHandle::SharedPtr _openArchive(int flags)
 		{
 			int zipErrCode;
 
@@ -57,7 +57,7 @@ namespace Zip {
 
 			}
 
-			return newZipPtr;
+			return std::make_shared<ZipHandle>(newZipPtr);
 		}
 
 	private:

@@ -2,8 +2,8 @@
 
 #include <string>
 
-#include "zipconf.h"
-#include "zip.h"
+#include <zipconf.h>
+#include <zip.h>
 
 namespace Zip {
 

@@ -10,7 +10,13 @@ namespace Zip {
 	class ArchiveEntry {
 	public:
 
-		typedef std::function<ReadableEntryStream(zip_int64_t)> OpenEntryFunc;
+		typedef std::function<
+			ReadableEntryStream(zip_int64_t)
+		> OpenEntryFunc;
+
+		ArchiveEntry() :
+			_entryIndex(0)
+		{}
 
 		ArchiveEntry(
 			zip_int64_t entryIndex,
