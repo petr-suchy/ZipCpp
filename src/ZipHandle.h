@@ -1,9 +1,6 @@
 #pragma once
 
-#include <memory>
-
-#include <zipconf.h>
-#include <zip.h>
+#include "SourceStream.h"
 
 namespace Zip {
 
@@ -51,9 +48,19 @@ namespace Zip {
 			}
 		}
 
+		void attachSourceForSaving(SourceStream::SharedPtr srcPtr)
+		{
+			_attachedSourcesForSaving.push_back(srcPtr);
+		}
+
 	private:
 
 		zip_t* _zipPtr;
+
+		std::vector<
+			SourceStream::SharedPtr
+		> _attachedSourcesForSaving;
+
 		bool _isSaved;
 
 	};

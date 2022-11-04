@@ -1,6 +1,6 @@
 #pragma once
 
-#include "Error.h"
+#include "SourceStream.h"
 
 #define ZIP_READABLE_SOURCE_STREAM_SUPPORTS \
 	ZIP_SOURCE_OPEN, \
@@ -11,8 +11,6 @@
 	ZIP_SOURCE_FREE
 
 namespace Zip {
-
-	class SourceStream {};
 
 	template<typename InputStream>
 	class ReadableSourceStream : public SourceStream {

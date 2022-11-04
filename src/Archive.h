@@ -221,10 +221,6 @@ namespace Zip {
 		int _flags;
 		ZipHandle::SharedPtr _zipPtr;
 
-		std::vector<
-			std::shared_ptr<SourceStream>
-		> _attachedSourcesForSaving;
-
 		void openArchiveOnlyOnce()
 		{
 			if (_zipPtr->isSaved()) {
@@ -275,7 +271,7 @@ namespace Zip {
 
 			}
 
-			_attachedSourcesForSaving.push_back(srcPtr);
+			_zipPtr->attachSourceForSaving(srcPtr);
 
 			return entryIndex;
 		}
