@@ -12,7 +12,7 @@ namespace Zip {
 	public:
 
 		typedef std::function<
-			ReadableEntryStream(zip_int64_t)
+			ReadableEntryStream::SharedPtr(zip_int64_t)
 		> OpenEntryFunc;
 
 		ArchiveEntry(
@@ -38,7 +38,7 @@ namespace Zip {
 			return exists();
 		}
 
-		ReadableEntryStream openForReading()
+		ReadableEntryStream::SharedPtr openForReading()
 		{
 			if (!exists()) {
 				throw std::logic_error("archive file entry not found");
@@ -50,10 +50,10 @@ namespace Zip {
 		template<typename T>
 		void copyToStream(T& os)
 		{
-			Zip::ReadableEntryStream is = openForReading();
+			Zip::ReadableEntryStream::SharedPtr is = openForReading();
 			std::vector<char> buf(4096);
 
-			if (!is.good()) {
+			if (!is->good()) {
 				throw std::logic_error("input stream is not ready");
 			}
 
@@ -63,19 +63,19 @@ namespace Zip {
 
 			do {
 
-				is.read(buf.data(), buf.size());
+				is->read(buf.data(), buf.size());
 
-				if (is.fail()) {
+				if (is->fail()) {
 					throw std::runtime_error(
 						"failed to read data from entry input stream"
 					);
 				}
 
-				if (is.gcount() > 0) {
+				if (is->gcount() > 0) {
 
-					os.write(buf.data(), is.gcount());
+					os.write(buf.data(), is->gcount());
 
-					if (is.fail()) {
+					if (is->fail()) {
 						throw std::runtime_error(
 							"failed to write data to output stream"
 						);
@@ -83,7 +83,7 @@ namespace Zip {
 
 				}
 
-			} while (!is.eof());
+			} while (!is->eof());
 
 		}
 

@@ -1,21 +1,34 @@
 #pragma once
 
 #include "ZipHandle.h"
-#include "EntryStreamImpl.h"
+
+#include <functional>
 
 namespace Zip {
 
 	class ReadableEntryStream {
 	public:
 
+		typedef std::shared_ptr<ReadableEntryStream> SharedPtr;
+		typedef std::weak_ptr<ReadableEntryStream> WeakPtr;
+	
+		typedef std::function<void(ZipFileHandle::WeakPtr)> Deleter;
+
 		ReadableEntryStream(
-			EntryStreamImpl::SharedPtr impl
+			ZipFileHandle::WeakPtr fileHandle,
+			Deleter deleter
 		) :
-			_impl(impl),
+			_fileHandle(fileHandle),
+			_deleter(deleter),
 			_eof(false),
 			_fail(false),
 			_nread(0)
 		{}
+
+		~ReadableEntryStream()
+		{
+			_deleter(_fileHandle);
+		}
 
 		bool eof() { return _eof; }
 		bool fail() { return _fail; }
@@ -24,7 +37,7 @@ namespace Zip {
 
 		ZipFileHandle::WeakPtr getFileHandle()
 		{
-			return _impl->getFileHandle();
+			return _fileHandle;
 		}
 
 		void clear()
@@ -41,9 +54,18 @@ namespace Zip {
 				return;
 			}
 
-			auto nread = _impl->read(buf, nbytes);
+			auto tempFileHandle = _fileHandle.lock();
+
+			if (!tempFileHandle) {
+				// archive has been destroyed
+				_fail = true;
+				return;
+			}
+
+			auto nread = tempFileHandle->read(buf, nbytes);
 
 			if (nread < 0) {
+				// failed to read data
 				_fail = true;
 				return;
 			}
@@ -51,6 +73,7 @@ namespace Zip {
 			_nread = (size_t) nread;
 
 			if (_nread == 0) {
+				// end of file
 				_eof = true;
 			}
 
@@ -58,7 +81,8 @@ namespace Zip {
 
 	private:
 
-		EntryStreamImpl::SharedPtr _impl;
+		ZipFileHandle::WeakPtr _fileHandle;
+		Deleter _deleter;
 
 		bool _eof;
 		bool _fail;

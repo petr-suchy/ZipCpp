@@ -90,7 +90,9 @@ namespace Zip {
 						
 					}
 
-					auto streamImpl = std::make_shared<EntryStreamImpl>(
+					auto entryStream = std::make_shared<
+						ReadableEntryStream
+					>(
 						fileHandle,
 						// deleter
 						[weakHandle] (
@@ -111,7 +113,7 @@ namespace Zip {
 						}
 					);
 
-					return ReadableEntryStream(streamImpl);
+					return entryStream;
 				}
 			);
 
