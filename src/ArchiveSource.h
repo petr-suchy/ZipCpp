@@ -24,7 +24,7 @@ namespace Zip {
 			if (!zipSrcPtr) {
 
 				throw std::runtime_error(
-					std::string("can't create a zip archive source -> ")
+					std::string("cannot create a zip archive source -> ")
 						+ error.getErrMessage()
 				);
 
@@ -41,7 +41,7 @@ namespace Zip {
 				zip_source_free(zipSrcPtr);
 
 				throw std::runtime_error(
-					std::string("can't open a zip archive from the data source -> ")
+					std::string("cannot open a zip archive from the data source -> ")
 						+ error.getErrMessage()
 				);
 

@@ -17,20 +17,12 @@ namespace Zip {
 		typedef struct zip_stat EntryInfo;
 		typedef std::vector<EntryInfo> EntryList;
 
-		virtual ~Archive()
-		{
-			// zip handle MUST be destroyed before the attached sources
-			_zipPtr = nullptr;
-		}
-
 		EntryList getEntryList()
 		{
-			openArchiveOnlyOnce();
-
 			EntryList entryList;
 
 			zip_int64_t numOfEntries = zip_get_num_entries(
-				_zipPtr->get(),
+				getHandle()->get(),
 				0
 			);
 
@@ -39,7 +31,7 @@ namespace Zip {
 				struct zip_stat stat;
 
 				int result = zip_stat_index(
-					_zipPtr->get(),
+					getHandle()->get(),
 					index,
 					0,
 					&stat
@@ -54,106 +46,76 @@ namespace Zip {
 			return entryList;
 		}
 
-		void saveAndClose()
-		{
-			_zipPtr->saveAndClose();
-		}
-
 		ArchiveEntry getEntry(
 			const std::string& entryPath,
+			const std::string& entryPwd = "",
 			int flags = ZIP_FL_NOCASE | ZIP_FL_ENC_GUESS
 		)
 		{
-			openArchiveOnlyOnce();
-
 			// get a file index for the given name
 			zip_int64_t entryIndex = zip_name_locate(
-				_zipPtr->get(),
+				getHandle()->get(),
 				entryPath.c_str(),
 				flags
 			);
 
-			ZipHandle::WeakPtr weakZipPtr = _zipPtr;
+			auto weakHandle = getWeakHandle();
 
 			return ArchiveEntry (
 				entryIndex,
-				// opens archive entry
-				[weakZipPtr] (zip_int64_t entryIndex)
+				// open entry function
+				[weakHandle, entryPwd] (zip_int64_t entryIndex)
 				{
-
-					auto zipPtr = weakZipPtr.lock();
-
-					if (!zipPtr) {
-						throw std::logic_error("archive has been closed");
+					auto tempHandle = weakHandle.lock();
+					
+					if (!tempHandle) {
+						throw std::logic_error("archive has been destroyed");
 					}
 
-					zip_file_t* zipFilePtr = zip_fopen_index(
-						zipPtr->get(),
-						entryIndex,
-						0
+					ZipFileHandle::SharedPtr fileHandle;
+
+					if (entryPwd.empty()) {
+
+						fileHandle = tempHandle->openEntry(
+							entryIndex
+						);
+						
+					}
+					else {
+
+						fileHandle = tempHandle->openEncryptedEntry(
+							entryIndex,
+							entryPwd
+						);
+						
+					}
+
+					auto streamImpl = std::make_shared<EntryStreamImpl>(
+						fileHandle,
+						// deleter
+						[weakHandle] (
+							ZipFileHandle::WeakPtr fileHandle
+						)
+						{
+							auto tempHandle = weakHandle.lock();
+
+							if (!tempHandle) {
+								return;
+							}
+
+							auto tempFileHandle = fileHandle.lock();
+
+							if (tempFileHandle) {
+								tempHandle->closeEntry(tempFileHandle->get());
+							}
+						}
 					);
 
-					if (!zipFilePtr) {
-
-						throw std::runtime_error(
-							std::string("can't open archive entry for reading -> ")
-								+ zip_strerror(zipPtr->get())
-						);
-
-					}
-
-					return ReadableEntryStream(zipFilePtr);
+					return ReadableEntryStream(streamImpl);
 				}
 			);
 
 		}
-
-		ArchiveEntry getEncryptedEntry(
-			const std::string& entryPath,
-			const std::string& entryPassword,
-			int flags = ZIP_FL_NOCASE | ZIP_FL_ENC_GUESS
-		)
-		{
-			openArchiveOnlyOnce();
-
-			// get a file index for the given name
-			zip_int64_t entryIndex = zip_name_locate(
-				_zipPtr->get(),
-				entryPath.c_str(),
-				flags
-			);
-
-			return ArchiveEntry(
-				entryIndex,
-				// opens encrypted archive entry
-				[this, entryPassword] (zip_int64_t entryIndex) {
-
-					if (!_zipPtr->get()) {
-						throw std::logic_error("archive has been closed");
-					}
-
-					zip_file_t* zipFilePtr = zip_fopen_index_encrypted(
-						_zipPtr->get(),
-						entryIndex,
-						0,
-						entryPassword.c_str()
-					);
-
-					if (!zipFilePtr) {
-
-						throw std::runtime_error(
-							std::string("can't open encrypted archive entry for reading -> ")
-								+ zip_strerror(_zipPtr->get())
-						);
-
-					}
-
-					return ReadableEntryStream(zipFilePtr);
-				}
-			);
-
-		}
-		
 
 		template<typename InputStream>
 		void addEntry(
@@ -188,7 +150,7 @@ namespace Zip {
 			);
 
 			int failed = zip_file_set_encryption(
-				_zipPtr,
+				getHandle(),
 				entryIndex,
 				ZIP_EM_AES_256,
 				entryPassword.c_str()
@@ -197,12 +159,22 @@ namespace Zip {
 			if (failed) {
 
 				throw std::runtime_error(
-					std::string("can't set encryption for archive entry -> ")
-						+ zip_strerror(_zipPtr)
+					std::string("cannot set encryption for archive entry -> ")
+						+ zip_strerror(getHandle())
 				);
 
 			}
 
+		}
+
+		void discardAndClose()
+		{
+			_handle->discardAndClose();
+		}
+
+		void saveAndClose()
+		{
+			_handle->saveAndClose();
 		}
 
 	protected:
@@ -211,25 +183,29 @@ namespace Zip {
 			int flags
 		) :
 			_flags(flags),
-			_zipPtr(std::make_shared<ZipHandle>(nullptr))
+			_handle(nullptr)
 		{}
 
 		virtual ZipHandle::SharedPtr _openArchive(int flags) = 0;
 
 	private:
 
+		ZipHandle::SharedPtr _handle;
 		int _flags;
-		ZipHandle::SharedPtr _zipPtr;
+		bool _hasBeenSaved;
 
-		void openArchiveOnlyOnce()
+		ZipHandle::SharedPtr getHandle()
 		{
-			if (_zipPtr->isSaved()) {
-				throw std::logic_error("archive has been closed");
+			if (!_handle) {
+				_handle = _openArchive(_flags);
 			}
 
-			if (!_zipPtr->isOpen()) {
-				_zipPtr = _openArchive(_flags);
-			}
+			return _handle;
+		}
+
+		ZipHandle::WeakPtr getWeakHandle()
+		{
+			return _handle;
 		}
 
 		template<typename InputStream>
@@ -241,20 +217,21 @@ namespace Zip {
 			int flags = 0
 		)
 		{
-			openArchiveOnlyOnce();
 
 			zip_source_t* zipSrcPtr = zip_source_function(
-				_zipPtr->get(),
+				getHandle()->get(),
 				&ReadableSourceStream<InputStream>::dispatch,
 				srcPtr.get()
 			);
 
 			if (!zipSrcPtr) {
-				throw std::runtime_error("can't create zip archive data source");
+				throw std::runtime_error(
+					"cannot create zip archive data source"
+				);
 			}
 
 			zip_int64_t entryIndex = zip_file_add(
-				_zipPtr->get(),
+				getHandle()->get(),
 				entryPath.c_str(),
 				zipSrcPtr,
 				ZIP_FL_OVERWRITE | flags
@@ -265,13 +242,13 @@ namespace Zip {
 				zip_source_free(zipSrcPtr);
 
 				throw std::runtime_error(
-					std::string("can't add entry to zip archive -> ")
-						+ zip_strerror(_zipPtr->get())
+					std::string("cannot add entry to zip archive -> ")
+						+ zip_strerror(getHandle()->get())
 				);
 
 			}
 
-			_zipPtr->attachSourceForSaving(srcPtr);
+			getHandle()->attachSourceForSaving(srcPtr);
 
 			return entryIndex;
 		}

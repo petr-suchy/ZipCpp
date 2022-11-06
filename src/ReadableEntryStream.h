@@ -1,62 +1,68 @@
 #pragma once
 
-#include "zipconf.h"
-#include "zip.h"
+#include "ZipHandle.h"
+#include "EntryStreamImpl.h"
 
 namespace Zip {
 
 	class ReadableEntryStream {
 	public:
 
-		ReadableEntryStream(zip_file_t* zipFilePtr) :
-			_zipFilePtr(zipFilePtr),
-			_bytesRead(0),
-			_failFlag(false)
+		ReadableEntryStream(
+			EntryStreamImpl::SharedPtr impl
+		) :
+			_impl(impl),
+			_eof(false),
+			_fail(false),
+			_nread(0)
 		{}
 
-		~ReadableEntryStream()
+		bool eof() { return _eof; }
+		bool fail() { return _fail; }
+		bool good() { return !_eof && !_fail; }
+		size_t gcount() { return _nread; }
+
+		ZipFileHandle::WeakPtr getFileHandle()
 		{
-			zip_fclose(_zipFilePtr);
+			return _impl->getFileHandle();
 		}
 
-		size_t gcount()
+		void clear()
 		{
-			return _bytesRead;
+			_eof = false;
+			_fail = false;
 		}
 
-		bool fail()
+		void read(char* buf, size_t nbytes)
 		{
-			return _failFlag;
-		}
+			_nread = 0;
 
-		void read(char* readBuffer, size_t bytesToRead)
-		{
-			_bytesRead = 0;
-
-			if (_failFlag) {
+			if (_eof || _fail) {
 				return;
 			}
 
-			zip_int64_t bytesRead = zip_fread(
-				_zipFilePtr,
-				readBuffer,
-				bytesToRead
-			);
+			auto nread = _impl->read(buf, nbytes);
 
-			if (bytesRead < 0) {
-				_failFlag = true;
+			if (nread < 0) {
+				_fail = true;
+				return;
 			}
-			else {
-				_bytesRead = (size_t) bytesRead;
+
+			_nread = (size_t) nread;
+
+			if (_nread == 0) {
+				_eof = true;
 			}
 
 		}
 
 	private:
 
-		zip_file_t* _zipFilePtr;
-		size_t _bytesRead;
-		bool _failFlag;
+		EntryStreamImpl::SharedPtr _impl;
+
+		bool _eof;
+		bool _fail;
+		size_t _nread;
 
 	};
 

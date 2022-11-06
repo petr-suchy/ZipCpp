@@ -2,6 +2,7 @@
 
 #include <stdexcept>
 #include <functional>
+#include <vector>
 
 #include "ReadableEntryStream.h"
 
@@ -13,10 +14,6 @@ namespace Zip {
 		typedef std::function<
 			ReadableEntryStream(zip_int64_t)
 		> OpenEntryFunc;
-
-		ArchiveEntry() :
-			_entryIndex(0)
-		{}
 
 		ArchiveEntry(
 			zip_int64_t entryIndex,
@@ -51,24 +48,50 @@ namespace Zip {
 		}
 
 		template<typename T>
-		void copyToStream(T& writableStream)
+		void copyToStream(T& os)
 		{
-			Zip::ReadableEntryStream rs = openForReading();
+			Zip::ReadableEntryStream is = openForReading();
+			std::vector<char> buf(4096);
 
-			char readBuff[512];
-			rs.read(readBuff, sizeof(readBuff));
-
-			while (rs.gcount() > 0) {
-				writableStream.write(readBuff, rs.gcount());
-				rs.read(readBuff, sizeof(readBuff));
+			if (!is.good()) {
+				throw std::logic_error("input stream is not ready");
 			}
+
+			if (!os.good()) {
+				throw std::logic_error("output stream is not ready");
+			}
+
+			do {
+
+				is.read(buf.data(), buf.size());
+
+				if (is.fail()) {
+					throw std::runtime_error(
+						"failed to read data from entry input stream"
+					);
+				}
+
+				if (is.gcount() > 0) {
+
+					os.write(buf.data(), is.gcount());
+
+					if (is.fail()) {
+						throw std::runtime_error(
+							"failed to write data to output stream"
+						);
+					}
+
+				}
+
+			} while (!is.eof());
+
 		}
 
 		template<typename T>
-		T& operator>> (T& writableStream)
+		T& operator>> (T& os)
 		{
-			copyToStream(writableStream);
-			return writableStream;
+			copyToStream(os);
+			return os;
 		}
 
 	private:

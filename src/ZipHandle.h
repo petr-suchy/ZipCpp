@@ -1,51 +1,102 @@
 #pragma once
 
 #include "SourceStream.h"
+#include "ZipFileHandle.h"
+
+#include <map>
 
 namespace Zip {
 
 	class ZipHandle {
 	public:
 
+		typedef zip_t* RawPtr;
 		typedef std::shared_ptr<ZipHandle> SharedPtr;
 		typedef std::weak_ptr<ZipHandle> WeakPtr;
 
-		bool isOpen() { return _zipPtr != nullptr; }
-		bool isSaved() { return _isSaved; }
-		zip_t* get() { return _zipPtr; }
-
-		ZipHandle(zip_t* zipPtr) :
+		ZipHandle(RawPtr zipPtr = nullptr) :
 			_zipPtr(zipPtr),
-			_isSaved(false)
+			_hasBeenSaved(false)
 		{}
 
 		~ZipHandle()
 		{
 			if (isOpen()) {
-				// close the archive without writing changes to disk
+				// close all open files before closing the archive
+				_openFiles.clear();
+				// close the archive without saving changes
 				zip_discard(_zipPtr);
 			}
 		}
 
-		void saveAndClose()
+		bool isOpen()
 		{
-			if (isOpen()) {
+			return _zipPtr != nullptr;
+		}
 
-				// write changes to the disk and close the archive
-				int result = zip_close(_zipPtr);
+		bool hasBeenSaved()
+		{
+			return _hasBeenSaved;
+		}
 
-				if (result == -1) {
+		RawPtr get()
+		{
+			if (!isOpen()) {
+				throw std::logic_error("archive is not open");
+			}
 
-					throw std::runtime_error(
-						std::string("can't close zip archive -> ")
-							+ zip_strerror(_zipPtr)
-					);
+			return _zipPtr;
+		}
 
+		// discards changes and closes the archive
+		void discardAndClose()
+		{
+			if (!isOpen()) {
+
+				if (hasBeenSaved()) {
+					throw std::logic_error("archive has been closed");
 				}
 
-				_zipPtr = nullptr;
-				_isSaved = true;
+				return;
 			}
+
+			// close all open files before closing the archive
+			_openFiles.clear();
+			// close the archive
+			zip_discard(_zipPtr);
+
+			_zipPtr = nullptr;
+		}
+
+		// saves changes and closes the archive
+		void saveAndClose()
+		{
+			if (!isOpen()) {
+
+				if (!hasBeenSaved()) {
+					throw std::logic_error("archive has been closed");
+				}
+
+				return;
+			}
+
+			// close all open files before closing the archive
+			_openFiles.clear();
+
+			// save changes and close the archive
+			int result = zip_close(_zipPtr);
+
+			if (result == -1) {
+
+				throw std::runtime_error(
+					std::string("cannot close zip archive -> ")
+						+ zip_strerror(_zipPtr)
+				);
+
+			}
+
+			_zipPtr = nullptr;
+			_hasBeenSaved = true;
 		}
 
 		void attachSourceForSaving(SourceStream::SharedPtr srcPtr)
@@ -53,15 +104,80 @@ namespace Zip {
 			_attachedSourcesForSaving.push_back(srcPtr);
 		}
 
+		ZipFileHandle::SharedPtr openEntry(zip_int64_t entryIndex)
+		{
+			zip_file_t* zipFilePtr = zip_fopen_index(
+				get(),
+				entryIndex,
+				0
+			);
+
+			if (!zipFilePtr) {
+
+				throw std::runtime_error(
+					std::string("cannot open archive entry for reading -> ")
+						+ zip_strerror(get())
+				);
+
+			}
+
+			auto openFile = std::make_shared<
+				ZipFileHandle
+			>(zipFilePtr);
+
+			_openFiles[zipFilePtr] = openFile;
+
+			return openFile;
+		}
+
+		ZipFileHandle::SharedPtr openEncryptedEntry(
+			zip_int64_t entryIndex,
+			const std::string& entryPwd
+		)
+		{
+			zip_file_t* zipFilePtr = zip_fopen_index_encrypted(
+				get(),
+				entryIndex,
+				0,
+				entryPwd.c_str()
+			);
+
+			if (!zipFilePtr) {
+
+				throw std::runtime_error(
+					std::string("cannot open encrypted archive entry for reading -> ")
+						+ zip_strerror(get())
+				);
+
+			}
+
+			auto openFile = std::make_shared<
+				ZipFileHandle
+			>(zipFilePtr);
+
+			_openFiles[zipFilePtr] = openFile;
+
+			return openFile;
+		}
+
+		void closeEntry(ZipFileHandle::RawPtr zipFilePtr)
+		{
+			_openFiles.erase(zipFilePtr);
+		}
+
 	private:
 
-		zip_t* _zipPtr;
+		RawPtr _zipPtr;
+		bool _hasBeenSaved;
 
 		std::vector<
 			SourceStream::SharedPtr
 		> _attachedSourcesForSaving;
 
-		bool _isSaved;
+		std::map<
+			ZipFileHandle::RawPtr,
+			ZipFileHandle::SharedPtr
+		> _openFiles;
 
 	};
 

@@ -1,6 +1,7 @@
 #pragma once
 
 #include "SourceStream.h"
+#include "ZipFileHandle.h"
 
 #define ZIP_READABLE_SOURCE_STREAM_SUPPORTS \
 	ZIP_SOURCE_OPEN, \

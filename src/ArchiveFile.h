@@ -51,7 +51,7 @@ namespace Zip {
 			if (!newZipPtr) {
 
 				throw std::runtime_error(
-					std::string("can't open zip archive file -> ")
+					std::string("cannot open zip archive file -> ")
 						+ Error(zipErrCode).getErrMessage()
 				);
 
