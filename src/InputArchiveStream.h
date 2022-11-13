@@ -1,36 +1,80 @@
 #pragma once
 
 #include "Archive.h"
-#include "ArchiveSource.h"
 #include "SeekableSourceStream.h"
 
 namespace Zip {
 
 	template<typename InputStream>
-	class InputArchiveStream : public ArchiveSource {
+	class InputArchiveStream : public Archive {
 	public:
 
 		InputArchiveStream(InputStream inputStreamPtr) :
-			_src(inputStreamPtr),
-			ArchiveSource(ZIP_RDONLY)
+			Archive(ZIP_RDONLY),
+			_inputStreamPtr(inputStreamPtr)
 		{}
 
 	protected:
 
-		virtual zip_source_callback _getSourceDispath()
-		{
-			return &SeekableSourceStream<InputStream>::dispatch;
-		}
+		typedef SeekableSourceStream<
+			InputStream
+		> SeekableSource;
 
-		virtual void* _getSourcePtr()
+		virtual ZipHandle::SharedPtr _openArchive(int flags)
 		{
-			return &_src;
+			auto seekableSource = std::make_shared<
+				SeekableSource
+			>(_inputStreamPtr);
+
+			_inputStreamPtr = nullptr;
+
+			Error error;
+
+			zip_source_t* zipSrcPtr = zip_source_function_create(
+				&SeekableSource::dispatch,
+				seekableSource.get(),
+				error.getInternalStructPtr()
+			);
+
+			if (!zipSrcPtr) {
+
+				throw std::runtime_error(
+					std::string("cannot create a zip archive source -> ")
+						+ error.getErrMessage()
+				);
+
+			}
+
+			zip_t* newZipPtr = zip_open_from_source(
+				zipSrcPtr,
+				flags,
+				error.getInternalStructPtr()
+			);
+
+			if (!newZipPtr) {
+
+				zip_source_free(zipSrcPtr);
+
+				throw std::runtime_error(
+					std::string("cannot open a zip archive from the data source -> ")
+						+ error.getErrMessage()
+				);
+
+			}
+
+			return std::make_shared<ZipHandle>(newZipPtr, seekableSource);
 		}
 
 	private:
 
-		SeekableSourceStream<InputStream> _src;
+		InputStream _inputStreamPtr;
 
 	};
+
+	template<typename InputStream>
+	static InputArchiveStream<InputStream> MakeInputArchive(InputStream is)
+	{
+		return InputArchiveStream<InputStream>(is);
+	}
 
 }

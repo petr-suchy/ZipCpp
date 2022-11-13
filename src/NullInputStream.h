@@ -1,11 +1,15 @@
 #pragma once
 
+#include <memory>
+
 // This class mocks empty input stream
 
 namespace Zip {
 
 	class NullInputStream {
 	public:
+
+		typedef std::shared_ptr<NullInputStream> SharedPtr;
 
 		static const int beg = 0;
 		static const int cur = 0;

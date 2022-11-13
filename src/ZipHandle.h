@@ -15,8 +15,12 @@ namespace Zip {
 		typedef std::shared_ptr<ZipHandle> SharedPtr;
 		typedef std::weak_ptr<ZipHandle> WeakPtr;
 
-		ZipHandle(RawPtr zipPtr = nullptr) :
+		ZipHandle(
+			RawPtr zipPtr = nullptr,
+			SourceStream::SharedPtr sourcePtr = nullptr
+		) :
 			_zipPtr(zipPtr),
+			_sourcePtr(sourcePtr),
 			_hasBeenSaved(false)
 		{}
 
@@ -260,6 +264,7 @@ namespace Zip {
 	private:
 
 		RawPtr _zipPtr;
+		SourceStream::SharedPtr _sourcePtr;
 		bool _hasBeenSaved;
 
 		std::vector<

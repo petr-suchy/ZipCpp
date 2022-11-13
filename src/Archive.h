@@ -209,7 +209,7 @@ namespace Zip {
 
 		ZipHandle::WeakPtr getWeakHandle()
 		{
-			return _handle;
+			return getHandle();
 		}
 
 	};
