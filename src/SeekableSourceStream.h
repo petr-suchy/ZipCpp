@@ -68,10 +68,11 @@ namespace Zip {
 
 		virtual zip_int64_t stat(zip_stat_t* zipStatPtr)
 		{
+
 			zip_int64_t result = ReadableSourceStream<InputStream>::stat(zipStatPtr);
 
 			if (result != -1) {
-				
+
 				zip_int64_t inputSize = getInputSize();
 
 				if (inputSize < 0) {
@@ -157,7 +158,7 @@ namespace Zip {
 					_lastError.setCode(ZIP_ER_TELL);
 					return -1;
 				}
-
+				
 				// backup the current position in the stream
 				zip_int64_t prevOffset = _inputStreamPtr->tellg();
 

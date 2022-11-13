@@ -2,6 +2,7 @@
 
 #include "SourceStream.h"
 #include "ZipFileHandle.h"
+#include "ReadableSourceStream.h"
 
 #include <map>
 
@@ -99,9 +100,100 @@ namespace Zip {
 			_hasBeenSaved = true;
 		}
 
-		void attachSourceForSaving(SourceStream::SharedPtr srcPtr)
+		template<typename InputStream>
+		zip_int64_t attachSourceForSaving(
+			const std::string entryPath,
+			std::shared_ptr<
+				ReadableSourceStream<InputStream>
+			> srcPtr,
+			int flags
+		)
 		{
+
+			zip_source_t* zipSrcPtr = zip_source_function(
+				get(),
+				&ReadableSourceStream<InputStream>::dispatch,
+				srcPtr.get()
+			);
+
+			if (!zipSrcPtr) {
+				throw std::runtime_error(
+					"cannot create zip archive data source"
+				);
+			}
+
+			zip_int64_t entryIndex = zip_file_add(
+				get(),
+				entryPath.c_str(),
+				zipSrcPtr,
+				ZIP_FL_OVERWRITE | flags
+			);
+
+			if (entryIndex < 0) {
+
+				zip_source_free(zipSrcPtr);
+
+				throw std::runtime_error(
+					std::string("cannot add entry to zip archive -> ")
+						+ zip_strerror(get())
+				);
+
+			}
+
 			_attachedSourcesForSaving.push_back(srcPtr);
+
+			return entryIndex;
+		}
+		
+		template<typename InputStream>
+		zip_int64_t addEntry(
+			const std::string& entryPath,
+			InputStream readableStream,
+			int flags = 0
+		)
+		{
+			return attachSourceForSaving(
+				entryPath,
+				std::make_shared<
+					Zip::ReadableSourceStream<InputStream>
+				>(readableStream),
+				flags
+			);
+		}
+
+		template<typename InputStream>
+		zip_int64_t addEncryptedEntry(
+			const std::string& entryPath,
+			const std::string& entryPwd,
+			InputStream readableStream,
+			int flags = 0
+		)
+		{
+			zip_int64_t entryIndex = attachSourceForSaving(
+				entryPath,
+				std::make_shared<
+					Zip::ReadableSourceStream<InputStream>
+				>(readableStream),
+				flags
+			);
+
+			int failed = zip_file_set_encryption(
+				get(),
+				entryIndex,
+				ZIP_EM_AES_256,
+				entryPwd.c_str()
+			);
+
+			if (failed) {
+
+				throw std::runtime_error(
+					std::string("cannot set encryption for archive entry -> ")
+						+ zip_strerror(get())
+				);
+
+			}
+
+			return entryIndex;
 		}
 
 		ZipFileHandle::SharedPtr openEntry(zip_int64_t entryIndex)

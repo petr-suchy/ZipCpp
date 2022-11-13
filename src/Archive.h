@@ -7,7 +7,6 @@
 #include "Error.h"
 #include "ZipHandle.h"
 #include "ArchiveEntry.h"
-#include "ReadableSourceStream.h"
 
 namespace Zip {
 
@@ -46,7 +45,7 @@ namespace Zip {
 			return entryList;
 		}
 
-		ArchiveEntry getEntry(
+		ArchiveEntry entry(
 			const std::string& entryPath,
 			const std::string& entryPwd = "",
 			int flags = ZIP_FL_NOCASE | ZIP_FL_ENC_GUESS
@@ -63,7 +62,7 @@ namespace Zip {
 
 			return ArchiveEntry (
 				entryIndex,
-				// open entry function
+				// open for reading
 				[weakHandle, entryPwd] (zip_int64_t entryIndex)
 				{
 					auto tempHandle = weakHandle.lock();
@@ -114,6 +113,29 @@ namespace Zip {
 					);
 
 					return entryStream;
+				},
+
+				// open for writing
+				[weakHandle, entryPath, entryPwd] (zip_int64_t entryIndex)
+				{
+					auto tempHandle = weakHandle.lock();
+					
+					if (!tempHandle) {
+						throw std::logic_error("archive has been destroyed");
+					}
+
+					auto ss = std::make_shared<std::stringstream>();
+
+					if (entryPwd.empty()) {
+						tempHandle->addEntry(entryPath, ss);
+					}
+					else {
+						tempHandle->addEncryptedEntry(entryPath, entryPwd, ss);
+					}
+
+					return std::make_shared<
+						WritableEntryStream
+					>(weakHandle, ss);
 				}
 			);
 
@@ -126,11 +148,9 @@ namespace Zip {
 			int flags = 0
 		)
 		{
-			attachSourceForSaving(
+			getHandle()->addEntry(
 				entryPath,
-				std::make_shared<
-					Zip::ReadableSourceStream<InputStream>
-				>(readableStream),
+				readableStream,
 				flags
 			);
 		}
@@ -138,45 +158,27 @@ namespace Zip {
 		template<typename InputStream>
 		void addEncryptedEntry(
 			const std::string& entryPath,
-			const std::string& entryPassword,
+			const std::string& entryPwd,
 			InputStream readableStream,
 			int flags = 0
 		)
 		{
-			zip_int64_t entryIndex = attachSourceForSaving(
+			return getHandle()->addEncryptedEntry(
 				entryPath,
-				std::make_shared<
-					Zip::ReadableSourceStream<InputStream>
-				>(readableStream),
+				entryPwd,
+				readbaleStream,
 				flags
 			);
-
-			int failed = zip_file_set_encryption(
-				getHandle(),
-				entryIndex,
-				ZIP_EM_AES_256,
-				entryPassword.c_str()
-			);
-
-			if (failed) {
-
-				throw std::runtime_error(
-					std::string("cannot set encryption for archive entry -> ")
-						+ zip_strerror(getHandle())
-				);
-
-			}
-
 		}
 
 		void discardAndClose()
 		{
-			_handle->discardAndClose();
+			getHandle()->discardAndClose();
 		}
 
 		void saveAndClose()
 		{
-			_handle->saveAndClose();
+			getHandle()->saveAndClose();
 		}
 
 	protected:
@@ -208,51 +210,6 @@ namespace Zip {
 		ZipHandle::WeakPtr getWeakHandle()
 		{
 			return _handle;
-		}
-
-		template<typename InputStream>
-		zip_int64_t attachSourceForSaving(
-			const std::string entryPath,
-			std::shared_ptr<
-				ReadableSourceStream<InputStream>
-			> srcPtr,
-			int flags = 0
-		)
-		{
-
-			zip_source_t* zipSrcPtr = zip_source_function(
-				getHandle()->get(),
-				&ReadableSourceStream<InputStream>::dispatch,
-				srcPtr.get()
-			);
-
-			if (!zipSrcPtr) {
-				throw std::runtime_error(
-					"cannot create zip archive data source"
-				);
-			}
-
-			zip_int64_t entryIndex = zip_file_add(
-				getHandle()->get(),
-				entryPath.c_str(),
-				zipSrcPtr,
-				ZIP_FL_OVERWRITE | flags
-			);
-
-			if (entryIndex < 0) {
-
-				zip_source_free(zipSrcPtr);
-
-				throw std::runtime_error(
-					std::string("cannot add entry to zip archive -> ")
-						+ zip_strerror(getHandle()->get())
-				);
-
-			}
-
-			getHandle()->attachSourceForSaving(srcPtr);
-
-			return entryIndex;
 		}
 
 	};
