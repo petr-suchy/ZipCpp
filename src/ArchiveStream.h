@@ -75,10 +75,24 @@ namespace Zip {
 
 	};
 
+	// create an instance of archive stream
 	template<typename IStream, typename OStream>
-	static ArchiveStream<IStream, OStream> MakeArchive(IStream is, OStream os)
+	static ArchiveStream<
+		IStream, OStream
+	> MakeArchive(IStream is, OStream os)
 	{
 		return ArchiveStream<IStream, OStream>(is, os);
+	}
+
+	// create a shared pointer to archive stream
+	template<typename IStream, typename OStream>
+	static std::shared_ptr<
+		ArchiveStream<IStream, OStream>
+	> MakeSharedArchive(IStream is, OStream os)
+	{
+		return std::make_shared<
+			ArchiveStream<IStream, OStream>
+		>(is, os);
 	}
 
 }

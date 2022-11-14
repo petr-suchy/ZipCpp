@@ -73,10 +73,24 @@ namespace Zip {
 
 	};
 
+	// create an instance of output archive stream
 	template<typename OutputStream>
-	static OutputArchiveStream<OutputStream> MakeOutputArchive(OutputStream os)
+	static OutputArchiveStream<
+		OutputStream
+	> MakeOutputArchive(OutputStream os)
 	{
 		return OutputArchiveStream<OutputStream>(os);
+	}
+
+	// create a shared pointer to output archive stream
+	template<typename OutputStream>
+	static std::shared_ptr<
+		OutputArchiveStream<OutputStream>
+	> MakeSharedOutputArchive(OutputStream os)
+	{
+		return std::make_shared<
+			OutputArchiveStream<OutputStream>
+		>(os);
 	}
 
 }
