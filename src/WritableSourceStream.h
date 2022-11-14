@@ -114,7 +114,7 @@ namespace Zip {
 			return 0;
 		}
 
-		virtual zip_int64_t write(char *data, zip_uint64_t len)
+		virtual zip_int64_t write(const char *data, zip_uint64_t len)
 		{
 			if (_outputStreamPtr->fail()) {
 				_lastError.setCode(ZIP_ER_WRITE);

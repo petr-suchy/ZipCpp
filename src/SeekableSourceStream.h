@@ -160,7 +160,7 @@ namespace Zip {
 				}
 				
 				// backup the current position in the stream
-				zip_int64_t prevOffset = _inputStreamPtr->tellg();
+				auto prevOffset = _inputStreamPtr->tellg();
 
 				// set the position to the end
 				_inputStreamPtr->seekg(0, _inputStreamPtr->end);
