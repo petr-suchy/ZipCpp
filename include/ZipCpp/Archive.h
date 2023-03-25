@@ -188,30 +188,17 @@ namespace Zip {
 			getHandle()->saveAndClose();
 		}
 
-	protected:
-
-		Archive(
-			int flags
-		) :
-			_flags(flags),
-			_handle(nullptr)
-		{}
-
-		virtual ZipHandle::SharedPtr _openArchive(int flags)
-		{
-			return _openFunc();
-		}
-
 	private:
 
 		OpenFunc _openFunc;
 		ZipHandle::SharedPtr _handle;
-		int _flags;
 
 		ZipHandle::SharedPtr getHandle()
 		{
 			if (!_handle) {
-				_handle = _openArchive(_flags);
+				_handle = _openFunc();
+				// release the function after use
+				_openFunc = nullptr;
 			}
 
 			return _handle;
