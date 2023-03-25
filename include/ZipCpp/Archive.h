@@ -166,7 +166,7 @@ namespace Zip {
 			return getHandle()->addEncryptedEntry(
 				entryPath,
 				entryPwd,
-				readbaleStream,
+				readableStream,
 				flags
 			);
 		}
