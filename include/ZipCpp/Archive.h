@@ -19,6 +19,10 @@ namespace Zip {
 		typedef struct zip_stat EntryInfo;
 		typedef std::vector<EntryInfo> EntryList;
 
+		Archive() :
+			_openFunc(nullptr)
+		{}
+
 		Archive(OpenFunc openFunc) :
 			_openFunc(openFunc)
 		{}
