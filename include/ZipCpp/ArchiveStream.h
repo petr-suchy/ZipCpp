@@ -61,4 +61,16 @@ namespace Zip {
 		);
 	}
 
+	// Creates a shared pointer to input/output archive stream.
+	template<typename InputStream, typename OutputStream>
+	Archive::SharedPtr MakeSharedArchive(
+		InputStream inputStream,
+		OutputStream outputStream
+	)
+	{
+		return std::make_shared<Archive>(
+			MakeArchive(inputStream, outputStream)
+		);
+	}
+
 }
