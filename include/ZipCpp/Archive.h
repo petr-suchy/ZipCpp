@@ -14,6 +14,8 @@ namespace Zip {
 	class Archive {
 	public:
 
+		typedef std::shared_ptr<Archive> SharedPtr;
+
 		typedef std::function<ZipHandle::SharedPtr()> OpenFunc;
 
 		typedef struct zip_stat EntryInfo;
