@@ -7,62 +7,50 @@ namespace Zip {
 	class ArchiveFile : public Archive {
 	public:
 
-		struct Existing {};
-		struct ReadOnly {};
-		struct Truncate {};
+		enum class Mode {
+			Existing,	// open an existing archive
+			Create,		// create archive if it does not exist
+			ReadOnly,	// open archive only for reading
+			Truncate	// if archive exists, ignores its current contents
+		};
 
-		// default - creates archive if it does not exist
-		ArchiveFile(const std::string& filePath) :
-			_filePath(filePath),
-			// flags will be passed to _openArchive function
-			Archive(ZIP_CREATE)
+		ArchiveFile(const std::string& filePath, Mode mode = Mode::Create) :
+			Archive(
+				[filePath, mode]()
+				{
+					int flags;
+					int zipErrCode;
+
+					switch (mode) {
+
+						case Mode::Existing: flags = 0; break;
+						case Mode::Create: flags = ZIP_CREATE; break;
+						case Mode::ReadOnly: flags = ZIP_RDONLY; break;
+						case Mode::Truncate: flags = ZIP_TRUNCATE; break;
+
+						default:
+							throw std::logic_error("invalid archive open mode");
+					}
+
+					zip_t* newZipPtr = zip_open(
+						filePath.c_str(),
+						flags,
+						&zipErrCode
+					);
+
+					if (!newZipPtr) {
+
+						throw std::runtime_error(
+							std::string("cannot open zip archive file -> ")
+							+ Error(zipErrCode).getErrMessage()
+						);
+
+					}
+
+					return std::make_shared<ZipHandle>(newZipPtr);
+				}
+			)
 		{}
-
-		// opens exsiting archive
-		ArchiveFile(const std::string& filePath, Existing) :
-			_filePath(filePath),
-			Archive(0)
-		{}
-
-		// opens archive in read-only mode
-		ArchiveFile(const std::string& filePath, ReadOnly) :
-			_filePath(filePath),
-			Archive(ZIP_RDONLY)
-		{}
-
-		// if archive exists, ignores its current contents
-		ArchiveFile(const std::string& filePath, Truncate) :
-			_filePath(filePath),
-			Archive(ZIP_TRUNCATE)
-		{}
-
-	protected:
-
-		virtual ZipHandle::SharedPtr _openArchive(int flags)
-		{
-			int zipErrCode;
-
-			zip_t* newZipPtr = zip_open(
-				_filePath.c_str(),
-				flags,
-				&zipErrCode
-			);
-
-			if (!newZipPtr) {
-
-				throw std::runtime_error(
-					std::string("cannot open zip archive file -> ")
-						+ Error(zipErrCode).getErrMessage()
-				);
-
-			}
-
-			return std::make_shared<ZipHandle>(newZipPtr);
-		}
-
-	private:
-
-		std::string _filePath;
 
 	};
 
