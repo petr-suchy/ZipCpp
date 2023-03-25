@@ -97,12 +97,12 @@ namespace Zip {
 		virtual zip_int64_t seek(void *data, zip_uint64_t len)
 		{
 			// is the input stream ready?
-			if (_inputStreamPtr->fail()) {
-				_lastError.setCode(ZIP_ER_SEEK);
+			if (inputStream()->fail()) {
+				lastError().setCode(ZIP_ER_SEEK);
 				return -1;
 			}
 
-			zip_int64_t oldOffset = _inputStreamPtr->tellg();
+			zip_int64_t oldOffset = inputStream()->tellg();
 			zip_int64_t inputSize = getInputSize();
 
 			if (inputSize < 0) {
@@ -115,7 +115,7 @@ namespace Zip {
 				inputSize,
 				data,
 				len,
-				_lastError.getInternalStructPtr()
+				lastError().getInternalStructPtr()
 			);
 
 			if (newOffset < 0) {
@@ -123,10 +123,10 @@ namespace Zip {
 			}
 
 			// set the new offset
-			_inputStreamPtr->seekg(newOffset, _inputStreamPtr->beg);
+			inputStream()->seekg(newOffset, inputStream()->beg);
 
-			if (_inputStreamPtr->fail()) {
-				_lastError.setCode(ZIP_ER_SEEK);
+			if (inputStream()->fail()) {
+				lastError().setCode(ZIP_ER_SEEK);
 				return -1;
 			}
 
@@ -136,12 +136,12 @@ namespace Zip {
 		virtual zip_int64_t tell()
 		{
 			// is the input stream ready?
-			if (_inputStreamPtr->fail()) {
-				_lastError.setCode(ZIP_ER_TELL);
+			if (inputStream()->fail()) {
+				lastError().setCode(ZIP_ER_TELL);
 				return -1;
 			}
 
-			return _inputStreamPtr->tellg();
+			return inputStream()->tellg();
 		}
 
 		zip_int64_t getInputSize()
@@ -154,30 +154,30 @@ namespace Zip {
 				// the size if obtained from the input stream
 
 				// is the input stream ready?
-				if (_inputStreamPtr->fail()) {
-					_lastError.setCode(ZIP_ER_TELL);
+				if (inputStream()->fail()) {
+					lastError().setCode(ZIP_ER_TELL);
 					return -1;
 				}
 				
 				// backup the current position in the stream
-				auto prevOffset = _inputStreamPtr->tellg();
+				auto prevOffset = inputStream()->tellg();
 
 				// set the position to the end
-				_inputStreamPtr->seekg(0, _inputStreamPtr->end);
+				inputStream()->seekg(0, inputStream()->end);
 
-				if (_inputStreamPtr->fail()) {
-					_lastError.setCode(ZIP_ER_SEEK);
+				if (inputStream()->fail()) {
+					lastError().setCode(ZIP_ER_SEEK);
 					return -1;
 				}
 
 				// get once again the current position that is now equal to the size
-				result = _inputStreamPtr->tellg();
+				result = inputStream()->tellg();
 
 				// restore the previous position
-				_inputStreamPtr->seekg(prevOffset, _inputStreamPtr->beg);
+				inputStream()->seekg(prevOffset, inputStream()->beg);
 
-				if (_inputStreamPtr->fail()) {
-					_lastError.setCode(ZIP_ER_SEEK);
+				if (inputStream()->fail()) {
+					lastError().setCode(ZIP_ER_SEEK);
 					return -1;
 				}
 
@@ -191,6 +191,16 @@ namespace Zip {
 	private:
 
 		zip_int64_t _inputSize;
+
+		InputStream& inputStream()
+		{
+			return ReadableSourceStream<InputStream>::_inputStreamPtr;
+		}
+
+		Error& lastError()
+		{
+			return ReadableSourceStream<InputStream>::_lastError;
+		}
 
 	};
 

@@ -65,7 +65,7 @@ namespace Zip {
 
 				default:
 
-					result = SeekableSourceStream::dispatch(
+					result = SeekableSourceStream<InputStream>::dispatch(
 						userdata,
 						data,
 						len,
@@ -78,7 +78,7 @@ namespace Zip {
 		}
 
 		WritableSourceStream(InputStream inputStreamPtr, OutputStream outputStreamPtr) :
-			SeekableSourceStream(inputStreamPtr),
+			SeekableSourceStream<InputStream>(inputStreamPtr),
 			_outputStreamPtr(outputStreamPtr),
 			_outputSize(0)
 		{}
@@ -117,7 +117,7 @@ namespace Zip {
 		virtual zip_int64_t write(const char *data, zip_uint64_t len)
 		{
 			if (_outputStreamPtr->fail()) {
-				_lastError.setCode(ZIP_ER_WRITE);
+				lastError().setCode(ZIP_ER_WRITE);
 				return -1;
 			}
 
@@ -126,7 +126,7 @@ namespace Zip {
 			_outputStreamPtr->write(data, len);
 
 			if (_outputStreamPtr->fail()) {
-				_lastError.setCode(ZIP_ER_WRITE);
+				lastError().setCode(ZIP_ER_WRITE);
 				return -1;
 			}
 
@@ -142,7 +142,7 @@ namespace Zip {
 		{
 			// is the output stream ready?
 			if (_outputStreamPtr->fail()) {
-				_lastError.setCode(ZIP_ER_SEEK);
+				lastError().setCode(ZIP_ER_SEEK);
 				return -1;
 			}
 
@@ -154,7 +154,7 @@ namespace Zip {
 				_outputSize,
 				data,
 				len,
-				_lastError.getInternalStructPtr()
+				lastError().getInternalStructPtr()
 			);
 
 			if (newOffset < 0) {
@@ -164,7 +164,7 @@ namespace Zip {
 			_outputStreamPtr->seekp(newOffset, _outputStreamPtr->beg);
 
 			if (_outputStreamPtr->fail()) {
-				_lastError.setCode(ZIP_ER_SEEK);
+				lastError().setCode(ZIP_ER_SEEK);
 				return -1;
 			}
 
@@ -175,7 +175,7 @@ namespace Zip {
 		{
 			// is the output stream ready?
 			if (_outputStreamPtr->fail()) {
-				_lastError.setCode(ZIP_ER_TELL);
+				lastError().setCode(ZIP_ER_TELL);
 				return -1;
 			}
 
@@ -185,6 +185,13 @@ namespace Zip {
 		virtual zip_int64_t remove()
 		{
 			return 0;
+		}
+
+	private:
+
+		Error& lastError()
+		{
+			return ReadableSourceStream<InputStream>::_lastError;
 		}
 
 	};
