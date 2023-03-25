@@ -3,6 +3,7 @@
 #include <string>
 #include <memory>
 #include <vector>
+#include <functional>
 
 #include "Error.h"
 #include "ZipHandle.h"
@@ -13,8 +14,14 @@ namespace Zip {
 	class Archive {
 	public:
 
+		typedef std::function<ZipHandle::SharedPtr(int flags)> OpenFunc;
+
 		typedef struct zip_stat EntryInfo;
 		typedef std::vector<EntryInfo> EntryList;
+
+		Archive(OpenFunc openFunc) :
+			_openFunc(openFunc)
+		{}
 
 		EntryList getEntryList()
 		{
@@ -190,10 +197,14 @@ namespace Zip {
 			_handle(nullptr)
 		{}
 
-		virtual ZipHandle::SharedPtr _openArchive(int flags) = 0;
+		virtual ZipHandle::SharedPtr _openArchive(int flags)
+		{
+			return _openFunc(flags);
+		}
 
 	private:
 
+		OpenFunc _openFunc;
 		ZipHandle::SharedPtr _handle;
 		int _flags;
 
