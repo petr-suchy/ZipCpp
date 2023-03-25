@@ -196,7 +196,6 @@ namespace Zip {
 
 		ZipHandle::SharedPtr _handle;
 		int _flags;
-		bool _hasBeenSaved;
 
 		ZipHandle::SharedPtr getHandle()
 		{
