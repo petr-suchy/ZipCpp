@@ -10,7 +10,7 @@ namespace Zip {
 	Archive MakeInputArchive(InputStream inputStream)
 	{
 		return Archive(
-			[inputStream](int flags)
+			[inputStream]()
 			{
 				auto seekableSource = std::make_shared<
 					SeekableSourceStream<InputStream>

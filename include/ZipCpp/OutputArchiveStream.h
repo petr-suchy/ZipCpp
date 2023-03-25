@@ -11,7 +11,7 @@ namespace Zip {
 	Archive MakeOutputArchive(OutputStream outputStream)
 	{
 		return Archive(
-			[outputStream](int flags)
+			[outputStream]()
 			{
 				auto writableSource = std::make_shared<
 					WritableSourceStream<

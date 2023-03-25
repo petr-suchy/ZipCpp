@@ -14,7 +14,7 @@ namespace Zip {
 	class Archive {
 	public:
 
-		typedef std::function<ZipHandle::SharedPtr(int flags)> OpenFunc;
+		typedef std::function<ZipHandle::SharedPtr()> OpenFunc;
 
 		typedef struct zip_stat EntryInfo;
 		typedef std::vector<EntryInfo> EntryList;
@@ -199,7 +199,7 @@ namespace Zip {
 
 		virtual ZipHandle::SharedPtr _openArchive(int flags)
 		{
-			return _openFunc(flags);
+			return _openFunc();
 		}
 
 	private:

@@ -10,7 +10,7 @@ namespace Zip {
 	Archive MakeArchive(InputStream inputStream, OutputStream outputStream)
 	{
 		return Archive(
-			[inputStream, outputStream](int flags)
+			[inputStream, outputStream]()
 			{
 				auto writableSource = std::make_shared<
 					WritableSourceStream<
