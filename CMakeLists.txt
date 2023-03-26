@@ -2,8 +2,8 @@ cmake_minimum_required(VERSION 3.10)
 
 project(ZipCpp
     VERSION 1.0.0
-    DESCRIPTION ""
-    HOMEPAGE_URL ""
+    DESCRIPTION "C++ header-only wrapper for libzip library."
+    HOMEPAGE_URL "https://github.com/petr-suchy/ZipCpp"
     LANGUAGES CXX
 )
 
