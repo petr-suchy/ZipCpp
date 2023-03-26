@@ -24,10 +24,6 @@ option(ZIPCPP_BUILD_TESTING
     "Build and run ZipCpp tests"
     ${IS_ZIPCPP_TOPLEVEL_PROJECT}
 )
-option(ZIPCPP_BUILD_EXAMPLE
-    "Build ZipCpp example"
-    ${IS_ZIPCPP_TOPLEVEL_PROJECT}
-)
 
 add_library(ZipCpp INTERFACE)
 # add alias so the project can be used with add_subdirectory
