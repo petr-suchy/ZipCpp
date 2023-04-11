@@ -1,4 +1,4 @@
-cmake_minimum_required(VERSION 3.10)
+cmake_minimum_required(VERSION 3.14)
 
 project(ZipCpp
     VERSION 1.0.0
@@ -59,6 +59,7 @@ if(ZIPCPP_INSTALL_LIBRARY)
         "ZipCppConfigVersion.cmake"
         VERSION ${PROJECT_VERSION}
         COMPATIBILITY SameMajorVersion
+        ARCH_INDEPENDENT
     )
 
     # create a config file
